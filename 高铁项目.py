@@ -579,14 +579,7 @@ def f11(city,title):
     df_y = pd.DataFrame({'LNG':lng,'lat':lat,'city':citys})
     return show(p),df_y,x
 
-x = f11('成都','成都城市圈')[1]
-y = f11('上海','成都城市圈')[2]
-y['城市对'] = y['城市对'].str.replace('上海','')
-y['城市对'] = y['城市对'].str.replace('-','')
-y = y[['城市对','最快到达时间','总得分']]
-y = pd.merge(y,lng_city1,left_on = '城市对',right_on = '地市',how = 'left')
-y.drop_duplicates('城市对',inplace = True)
-y = y[['城市对','最快到达时间','总得分','经度','纬度']]
+f11('成都','成都城市圈')
 f11('上海','上海城市圈')
 f11('北京','北京城市圈')
 f11('济南','济南城市圈')
@@ -750,10 +743,10 @@ plt.savefig('高铁城市表现力top20.png',dpi=400)
 
     #城市表现力划分以及城市群
 city_group = pd.read_excel('城市圈划分.xlsx')
-city_group['城市名单'] = city_group['城市名单'].str.split('、')
+city_group['city'] = city_group['city'].str.split('、')
 city_group_list = []
 for i in city_group.index:
-    x = pd.DataFrame({'城市':city_group.loc[i]['城市名单'],'城市群':city_group.loc[i]['城市群']})
+    x = pd.DataFrame({'城市':city_group.loc[i]['city'],'城市群':city_group.loc[i]['city_circle']})
     city_group_list.append(x)
 city_group = pd.concat(city_group_list)
 single_city_area =single_city_re[['城市', '高铁车次', '直达个数','综合得分','平均辐射半径']]
@@ -774,12 +767,7 @@ for i,j in zip(single_city_area['城市群'].unique().tolist(),colors):
 single_city_area = single_city_area[['城市', '高铁车次', '直达个数', '综合得分', 
                                      '平均辐射半径', '经度', '纬度','城市群','color']]
 single_city_area['size'] = single_city_area['综合得分']*50
-'''single_city_area['size'][single_city_area['size']<23] = 10
-single_city_area['size'][single_city_area['城市'] == '呼和浩特'] = 23
-single_city_area['size'][single_city_area['城市'] == '兰州'] = 23
-single_city_area['size'][single_city_area['城市'] == '南宁'] = 23
-single_city_area['size'][single_city_area['城市'] == '哈尔滨'] = 23
-single_city_area['size'][single_city_area['城市'] == '沈阳'] = 23'''
+
 single_city_area.columns = ['city','crh_count','city_count','score',
                             'r_mean','lng','lat','city_circle','color','size']
 source2 = ColumnDataSource(data = single_city_area)
@@ -953,12 +941,29 @@ station_counts_re.dropna(inplace = True)
 '''
 part3-5 z-score 计算综合得分
 '''
-def f13(new_col,old_col):
-    station_counts_re[new_col] = (station_counts_re[old_col] - station_counts_re[old_col].mean()) / station_counts_re[old_col].std()
+
+def f13(col1,col2):#越大标注化分越高
+    ma = station_counts_re[col2].max()
+    mi = station_counts_re[col2].min()
+    station_counts_re[col1] = (station_counts_re[col2] - mi) / (ma - mi)
+    return station_counts_re
+def f14(col1,col2):#越小标准化分越高
+    ma = station_counts_re[col2].max()
+    mi = station_counts_re[col2].min()
+    station_counts_re[col1] = abs((station_counts_re[col2] - ma) / (ma - mi))
     return station_counts_re
 f13('高铁车次_z','高铁车次')
-    
-x = single_city_re[['城市','高铁车次_nor','直达个数_nor','距离之和_nor','综合得分']].T.to_excel('33333333333.xlsx',index =False)
+f13('运行小时_z','全天运行小时')
+f13('高峰发车数_z','最高峰发车数')
+f13('score_z','score')
+f14('平均发车间隔_z','平均发车间隔')
+def f15(df_name):
+    x = df_name
+    x['total_score'] = x['高铁车次_z']*0.4+x['平均发车间隔_z']*0.2+x['score_z']*0.2+x['运行小时_z']*0.1+x['高峰发车数_z']*0.1
+    df_name = x
+    return df_name
+station_counts_re = f15(station_counts_re)    
+station_counts_re.sort_values(by = 'total_score',inplace = True,ascending = False)
 
 
 
@@ -967,20 +972,6 @@ x = single_city_re[['城市','高铁车次_nor','直达个数_nor','距离之和
 
 
 
-
-
-'''space_mean_list = []
-n = 1
-for i in station_time['经过站'].unique().tolist():
-    df = station_time[station_time['经过站'] == i]
-    df['x'] = df['经过站发车时间'] - df['经过站发车时间'].shift(1)
-    df.dropna(inplace = True)
-    space_mean = df['x'].mean()
-    space_mean_list.append(space_mean)
-    print(n)
-    n+=1
-station_space = pd.DataFrame({'经过站':station_time['经过站'].unique().tolist(),
-                              '平均发车间隔':space_mean_list})'''
 
 
 
